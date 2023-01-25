@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from siamese import SiameseNetwork
-from libs.dataset import Dataset
+from functions.dataset import Dataset
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
