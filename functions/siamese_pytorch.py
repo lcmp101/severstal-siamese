@@ -19,7 +19,8 @@ class SiameseNetwork(nn.Module):
             raise Exception("No model named {} exists in torchvision.models.".format(backbone))
 
         # Create a backbone network from the pretrained models provided in torchvision.models 
-        self.backbone = models.__dict__[backbone](pretrained=True, progress=True)
+        #self.backbone = models.__dict__[backbone](pretrained=True, progress=True)
+        self.backbone = models.__dict__[backbone](weights="IMAGENET1K_V1", progress=True)
 
         # Get the number of features that are outputted by the last layer of backbone network.
         out_features = list(self.backbone.modules())[-1].out_features
