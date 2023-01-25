@@ -1,5 +1,3 @@
-# Damage detection and recognition training pipeline
-
 from functions.utils import fixed_image_standardization
 import torch
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
@@ -17,12 +15,14 @@ import time
 import sys
 import gflags
 
+from siamese import SiameseNetwork
+#from libs.dataset import Dataset
 
 if __name__ == '__main__':
 
     # Parameters
     Flags = gflags.FLAGS
-    gflags.DEFINE_string("data_path", "dataset/all", "training folder")
+    gflags.DEFINE_string("data_path", "./train", "training folder")
     gflags.DEFINE_string("model_path", "models", "path to store model")
     gflags.DEFINE_bool("load_model", False, "Whether load a pretrained model or not")
     gflags.DEFINE_string("load_model_path", "models/model.pt", "pathname to load model")
@@ -137,11 +137,8 @@ if __name__ == '__main__':
     # UserWarning: size_average and reduce args will be deprecated, please use reduction='mean' instead.
     loss_fn = torch.nn.BCEWithLogitsLoss(size_average=True)  # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
     
-    net = Siamese(
-    classify=False,
-    pretrained='vggface2',
-    )
-    
+    net = SiameseNetwork(backbone="resnet50")
+        
     if Flags.load_model:
         net.load_state_dict(torch.load(Flags.load_model_path))
     if use_gpu:
@@ -226,5 +223,96 @@ if __name__ == '__main__':
     print("mean accuracy: ", acc / len(accuracy))
     print("max accuracy: ", max(accuracy))
     print("#" * 70)
+    train_dataset   = Dataset(args.train_path, shuffle_pairs=True, augment=True)
+    val_dataset     = Dataset(args.val_path, shuffle_pairs=False, augment=False)
     
-    
+    train_dataloader = DataLoader(train_dataset, batch_size=8, drop_last=True)
+    val_dataloader   = DataLoader(val_dataset, batch_size=8)
+
+    model = SiameseNetwork(backbone=args.backbone)
+    model.to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    criterion = torch.nn.BCELoss()
+
+    writer = SummaryWriter(os.path.join(args.out_path, "summary"))
+
+    best_val = 3
+
+    for epoch in range(args.epochs):
+        print("[{} / {}]".format(epoch, args.epochs))
+        model.train()
+
+        losses = []
+        correct = 0
+        total = 0
+
+        # Training Loop Start
+        for (img1, img2), y, (class1, class2) in train_dataloader:
+            img1, img2, y = map(lambda x: x.to(device), [img1, img2, y])
+
+            prob = model(img1, img2)
+            loss = criterion(prob, y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            losses.append(loss.item())
+            correct += torch.count_nonzero(y == (prob > 0.5)).item()
+            total += len(y)
+
+        #writer.add_scalar('train_loss', sum(losses)/len(losses), epoch)
+        #writer.add_scalar('train_acc', correct / total, epoch)
+
+        #print("\tTraining: Loss={:.2f}\t Accuracy={:.2f}\t".format(sum(losses)/len(losses), correct / total))
+        # Training Loop End
+
+        # Evaluation Loop Start
+        model.eval()
+
+        losses = []
+        correct = 0
+        total = 0
+
+        for (img1, img2), y, (class1, class2) in val_dataloader:
+            img1, img2, y = map(lambda x: x.to(device), [img1, img2, y])
+
+            prob = model(img1, img2)
+            loss = criterion(prob, y)
+
+            losses.append(loss.item())
+            correct += torch.count_nonzero(y == (prob > 0.5)).item()
+            total += len(y)
+
+        val_loss = sum(losses)/max(1, len(losses))
+        #writer.add_scalar('val_loss', val_loss, epoch)
+        #writer.add_scalar('val_acc', correct / total, epoch)
+
+        #print("\tValidation: Loss={:.2f}\t Accuracy={:.2f}\t".format(val_loss, correct / total))
+        # Evaluation Loop End
+
+        # Update "best.pth" model if val_loss in current epoch is lower than the best validation loss
+        if val_loss < best_val:
+            best_val = val_loss
+            torch.save(
+                {
+                    "epoch": epoch + 1,
+                    "model_state_dict": model.state_dict(),
+                    "backbone": args.backbone,
+                    "optimizer_state_dict": optimizer.state_dict()
+                },
+                os.path.join(args.out_path, "best.pth")
+            )            
+
+        # Save model based on the frequency defined by "args.save_after"
+        if (epoch + 1) % args.save_after == 0:
+            torch.save(
+                {
+                    "epoch": epoch + 1,
+                    "model_state_dict": model.state_dict(),
+                    "backbone": args.backbone,
+                    "optimizer_state_dict": optimizer.state_dict()
+                },
+                os.path.join(args.out_path, "epoch_{}.pth".format(epoch + 1))
+            )
