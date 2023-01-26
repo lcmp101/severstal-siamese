@@ -1,3 +1,5 @@
+#original https://github.com/sohaib023/siamese-pytorch/blob/master/libs/dataset.py
+
 import os
 import glob
 import time
@@ -16,14 +18,11 @@ class Dataset(torch.utils.data.IterableDataset):
         '''
         Create an iterable dataset from a directory containing sub-directories of 
         entities with their images contained inside each sub-directory.
-
             Parameters:
                     path (str):                 Path to directory containing the dataset.
                     shuffle_pairs (boolean):    Pass True when training, False otherwise. When set to false, the image pair generation will be deterministic
                     augment (boolean):          When True, images will be augmented using a standard set of transformations.
-
             where b = batch size
-
             Returns:
                     output (torch.Tensor): shape=[b, 1], Similarity of each pair of images
         '''
@@ -58,7 +57,7 @@ class Dataset(torch.utils.data.IterableDataset):
         Creates two lists of indices that will form the pairs, to be fed for training or evaluation.
         '''
 
-        self.image_paths = glob.glob(os.path.join(self.path, "*/*.png"))
+        self.image_paths = glob.glob(os.path.join(self.path, "*/*.jpg"))
         self.image_classes = []
         self.class_indices = {}
 
