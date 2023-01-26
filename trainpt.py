@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from siamese import SiameseNetwork
+from functions import SiameseNetwork
 from functions.dataset import Dataset
 
 if __name__ == "__main__":
@@ -74,8 +74,14 @@ if __name__ == "__main__":
     train_dataset   = Dataset(args.train_path, shuffle_pairs=True, augment=True)
     val_dataset     = Dataset(args.val_path, shuffle_pairs=False, augment=False)
     
+    print("train dataset length:", len(train_dataset))
+    print("val dataset length:",len(val_dataset))
+
     train_dataloader = DataLoader(train_dataset, batch_size=8, drop_last=True)
     val_dataloader   = DataLoader(val_dataset, batch_size=8)
+
+    print("train loader length:", len(train_dataloader))
+    print("val loader length:",len(val_dataloader))
 
     model = SiameseNetwork(backbone=args.backbone)
     model.to(device)
