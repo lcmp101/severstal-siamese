@@ -87,12 +87,14 @@ if __name__ == "__main__":
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    criterion = torch.nn.BCELoss()
+    #optimizer.zero_grad()  # Gradient initialization
+    loss_fn = torch.nn.BCELoss()
 
     writer = SummaryWriter(os.path.join(args.out_path, "summary"))
 
     best_val = 10000000000
-
+    
+      
     for epoch in range(args.epochs):
         print("[{} / {}]".format(epoch, args.epochs))
         model.train()
@@ -105,10 +107,13 @@ if __name__ == "__main__":
         for (img1, img2), y, (class1, class2) in train_dataloader:
             img1, img2, y = map(lambda x: x.to(device), [img1, img2, y])
 
+            # Prediction and error estimation
             prob = model(img1, img2)
-            loss = criterion(prob, y)
+            loss = loss_fn(prob, y)
 
-            optimizer.zero_grad()
+            optimizer.zero_grad() # Gradient reset per batch
+            
+            # Backpropagation
             loss.backward()
             optimizer.step()
 
@@ -133,7 +138,7 @@ if __name__ == "__main__":
             img1, img2, y = map(lambda x: x.to(device), [img1, img2, y])
 
             prob = model(img1, img2)
-            loss = criterion(prob, y)
+            loss = loss_fn(prob, y)
 
             losses.append(loss.item())
             correct += torch.count_nonzero(y == (prob > 0.5)).item()
